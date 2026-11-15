@@ -1,30 +1,55 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, LockKeyhole, Mail } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  LockKeyhole,
+  Mail,
+} from "lucide-react";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setError("");
 
-    if (!email.trim()) {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
       setError("Please enter your email address.");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       setError("Please enter a valid email address.");
       return;
     }
 
-    setError("");
+    setLoading(true);
+
+    const supabase = createClient();
+
+    const { error: recoveryError } =
+      await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+
+    setLoading(false);
+
+    if (recoveryError) {
+      setError(recoveryError.message);
+      return;
+    }
+
     setSubmitted(true);
   }
 
@@ -47,7 +72,7 @@ export default function ForgotPasswordPage() {
 
             <p className="mt-3 text-sm leading-6 text-gray-400">
               Enter the email address associated with your account.
-              We'll show you a simulated recovery confirmation.
+              We'll send you a password recovery link.
             </p>
           </div>
 
@@ -69,6 +94,8 @@ export default function ForgotPasswordPage() {
                       <input
                         id="email"
                         type="email"
+                        autoComplete="email"
+                        required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
@@ -77,15 +104,18 @@ export default function ForgotPasswordPage() {
                     </div>
 
                     {error && (
-                      <p className="mt-2 text-sm text-red-400">{error}</p>
+                      <p role="alert" className="mt-2 text-sm text-red-400">
+                        {error}
+                      </p>
                     )}
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full rounded-xl bg-[#B7FF3C] py-3.5 text-sm font-bold text-black transition hover:bg-[#a6ed2e]"
+                    disabled={loading}
+                    className="w-full rounded-xl bg-[#B7FF3C] py-3.5 text-sm font-bold text-black transition hover:bg-[#a6ed2e] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Send Recovery Link
+                    {loading ? "Sending..." : "Send Recovery Link"}
                   </button>
                 </form>
 
@@ -104,24 +134,36 @@ export default function ForgotPasswordPage() {
                 <CheckCircle2 className="mx-auto mb-5 h-14 w-14 text-[#B7FF3C]" />
 
                 <h2 className="text-xl font-bold text-white">
-                  Recovery Request Submitted
+                  Check Your Email
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-gray-400">
-                  Your demo recovery request for{" "}
-                  <span className="font-medium text-white">{email}</span>{" "}
-                  has been accepted.
+                  If an account exists for{" "}
+                  <span className="font-medium text-white">{email}</span>,
+                  you'll receive a password recovery link.
                 </p>
 
                 <div className="mt-6 rounded-xl border border-[#B7FF3C]/20 bg-[#B7FF3C]/5 p-4 text-left">
                   <p className="text-xs font-bold tracking-wider text-[#B7FF3C]">
-                    DEMO MODE NOTICE
+                    NEXT STEP
                   </p>
                   <p className="mt-2 text-sm leading-6 text-gray-400">
-                    No recovery email has been sent. Real password recovery
-                    will be connected during the backend integration phase.
+                    Open the recovery email and click its link. You'll be
+                    redirected to FitAI Coach to create a new password.
+                    Check your spam folder if necessary.
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmitted(false);
+                    setError("");
+                  }}
+                  className="mt-5 text-sm font-medium text-[#B7FF3C] hover:underline"
+                >
+                  Try another email
+                </button>
 
                 <Link
                   href="/login"
@@ -134,7 +176,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           <p className="mt-6 text-center font-mono text-[10px] tracking-widest text-gray-600">
-            FITAI COACH • PHASE 2 AUTHENTICATION SANDBOX
+            FITAI COACH • SECURE AUTHENTICATION
           </p>
         </div>
       </div>

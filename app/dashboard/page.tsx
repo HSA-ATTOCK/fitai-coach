@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,40 +13,137 @@ import {
   Droplets,
   Flame,
 } from "lucide-react";
+
+import { createClient } from "@/lib/supabase/client";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { DailySummary } from "@/components/dashboard/daily-summary";
 import { DemoBanner, Card } from "@/components/ui/primitives";
-import { useDemo } from "@/lib/demo/demo-store";
+
+type DashboardProfile = {
+  full_name: string | null;
+  daily_calories: number | null;
+  daily_protein: number | null;
+  daily_carbs: number | null;
+  daily_fat: number | null;
+  daily_water_ml: number | null;
+};
 
 export default function DashboardPage() {
-  const { profile, goals } = useDemo();
+  const [profileName, setProfileName] = useState("there");
+  const [loading, setLoading] = useState(true);
+
+  const [goals, setGoals] = useState({
+    dailyCalories: null as number | null,
+    dailyProtein: null as number | null,
+    dailyCarbs: null as number | null,
+    dailyFat: null as number | null,
+    dailyWaterMl: null as number | null,
+  });
+
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+
+    async function loadDashboardProfile() {
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) throw userError;
+
+        if (!user) {
+          if (active) setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(
+            "full_name, daily_calories, daily_protein, daily_carbs, daily_fat, daily_water_ml"
+          )
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (!active) return;
+
+        const profile = data as DashboardProfile | null;
+
+        const metadataName =
+          user.user_metadata?.full_name;
+
+        setProfileName(
+          profile?.full_name?.trim() ||
+            (typeof metadataName === "string"
+              ? metadataName.trim()
+              : "") ||
+            user.email?.split("@")[0] ||
+            "there"
+        );
+
+        if (profile) {
+          setGoals({
+            dailyCalories: profile.daily_calories,
+            dailyProtein: profile.daily_protein,
+            dailyCarbs: profile.daily_carbs,
+            dailyFat: profile.daily_fat,
+            dailyWaterMl: profile.daily_water_ml,
+          });
+        }
+      } catch (error) {
+        console.error("Dashboard profile loading error:", error);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadDashboardProfile();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const formatGoal = (value: number | null, unit: string) => {
+    if (value === null || value === undefined) {
+      return "Not set";
+    }
+
+    return `${value.toLocaleString()} ${unit}`;
+  };
 
   const targets = [
     {
       label: "Daily calories",
-      value: `${goals.dailyCalories.toLocaleString()} kcal`,
+      value: formatGoal(goals.dailyCalories, "kcal"),
       icon: Flame,
     },
     {
       label: "Protein",
-      value: `${goals.dailyProtein} g`,
+      value: formatGoal(goals.dailyProtein, "g"),
       icon: Utensils,
     },
     {
       label: "Carbohydrates",
-      value: `${goals.dailyCarbs} g`,
+      value: formatGoal(goals.dailyCarbs, "g"),
       icon: Target,
     },
     {
       label: "Fat",
-      value: `${goals.dailyFat} g`,
+      value: formatGoal(goals.dailyFat, "g"),
       icon: Target,
     },
     {
       label: "Water",
-      value: `${Number(
-  (goals.dailyWaterMl / 1000).toFixed(2),
-)} L`,
+      value:
+        goals.dailyWaterMl === null
+          ? "Not set"
+          : `${Number(
+              (goals.dailyWaterMl / 1000).toFixed(2)
+            )} L`,
       icon: Droplets,
     },
   ];
@@ -67,7 +165,7 @@ export default function DashboardPage() {
             <h1 className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
               Welcome back,
               <span className="block break-words text-lime-300">
-                {profile.name}!
+                {loading ? "..." : `${profileName}!`}
               </span>
             </h1>
 
@@ -123,7 +221,7 @@ export default function DashboardPage() {
                     Daily targets
                   </h2>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Your personal demo goals
+                    Your saved daily goals
                   </p>
                 </div>
               </div>
@@ -157,7 +255,7 @@ export default function DashboardPage() {
                     </div>
 
                     <strong className="shrink-0 text-sm font-semibold tabular-nums text-white">
-                      {target.value}
+                      {loading ? "Loading..." : target.value}
                     </strong>
                   </div>
                 );
@@ -226,9 +324,8 @@ export default function DashboardPage() {
                 className="mt-0.5 shrink-0 text-lime-300"
               />
               <p>
-                Phase 2 demo mode is active. Assistant responses and
-                records are handled locally; no live AI or database
-                is connected.
+                Your accepted records are saved to your account.
+                AI assistant responses are still using the demo mode.
               </p>
             </div>
           </Card>

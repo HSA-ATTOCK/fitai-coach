@@ -11,6 +11,15 @@ export interface ChatMessage {
   actionId?: string;
 }
 
+export interface NutritionIngredient {
+  name: string;
+  portion: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
 export interface FoodEntry {
   id: string;
   name: string;
@@ -21,6 +30,7 @@ export interface FoodEntry {
   carbs: number;
   fat: number;
   notes?: string;
+  ingredients?: NutritionIngredient[];
 }
 
 export interface WeightEntry {

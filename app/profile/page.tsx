@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   Check,
@@ -17,8 +16,8 @@ import {
   Flame,
 } from "lucide-react";
 
-// import { AppShell } from "@/components/layout/app-shell";
-import { useDemo } from "@/lib/demo/demo-store";
+import { createClient } from "@/lib/supabase/client";
+
 import type {
   FitnessGoals,
   GoalType,
@@ -146,45 +145,181 @@ function Field({
 }
 
 export default function ProfileGoalsPage() {
-  
-const { profile, goals, updateProfile, updateGoals } = useDemo();
+  const [supabase] = useState(() => createClient());
 
-const initialProfile = useState(() => ({ ...profile }))[0];
-const initialGoals = useState(() => ({ ...goals }))[0];
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-const [name, setName] = useState(profile.name);
-const [age, setAge] = useState(String(profile.age));
-const [height, setHeight] = useState(
-  String(toDisplayHeight(profile.heightCm, profile.units)),
-);
-const [currentWeightInput, setCurrentWeightInput] = useState<string | null>(
-  null,
-);
+  const defaultProfile: UserProfile = {
+    name: "",
+    age: 25,
+    heightCm: 170,
+    weightKg: 70,
+    units: "metric",
+    dietaryPreference: "No specific preference",
+    activityLevel: "Moderately active",
+  };
 
-const currentWeight =
-  currentWeightInput ??
-  String(toDisplayWeight(profile.weightKg, profile.units));
+  const defaultGoals: FitnessGoals = {
+    type: "maintain",
+    targetWeightKg: 70,
+    dailyCalories: 2100,
+    dailyProtein: 130,
+    dailyCarbs: 220,
+    dailyFat: 70,
+    dailyWaterMl: 3000,
+  };
 
+  const [initialData, setInitialData] = useState<{
+    profile: UserProfile;
+    goals: FitnessGoals;
+  } | null>(null);
+
+  const [name, setName] = useState(defaultProfile.name);
+  const [age, setAge] = useState(String(defaultProfile.age));
+  const [height, setHeight] = useState(
+    String(toDisplayHeight(defaultProfile.heightCm, defaultProfile.units)),
+  );
+  const [currentWeight, setCurrentWeight] = useState(
+    String(toDisplayWeight(defaultProfile.weightKg, defaultProfile.units)),
+  );
   const [targetWeight, setTargetWeight] = useState(
-    String(toDisplayWeight(goals.targetWeightKg, profile.units)),
+    String(toDisplayWeight(defaultGoals.targetWeightKg, defaultProfile.units)),
   );
   const [activityLevel, setActivityLevel] = useState(
-    activityToKey(profile.activityLevel),
+    activityToKey(defaultProfile.activityLevel),
   );
   const [dietaryPreference, setDietaryPreference] = useState(
-    profile.dietaryPreference,
+    defaultProfile.dietaryPreference,
   );
-  const [unit, setUnit] = useState<UnitSystem>(profile.units);
-  const [goalType, setGoalType] = useState<GoalType>(goals.type);
-  const [calories, setCalories] = useState(String(goals.dailyCalories));
-  const [protein, setProtein] = useState(String(goals.dailyProtein));
+  const [unit, setUnit] = useState<UnitSystem>(defaultProfile.units);
+  const [goalType, setGoalType] = useState<GoalType>(defaultGoals.type);
+  const [calories, setCalories] = useState(String(defaultGoals.dailyCalories));
+  const [protein, setProtein] = useState(String(defaultGoals.dailyProtein));
+  const [carbs, setCarbs] = useState(String(defaultGoals.dailyCarbs));
+  const [fat, setFat] = useState(String(defaultGoals.dailyFat));
+  const [hydration, setHydration] = useState(
+    String(defaultGoals.dailyWaterMl),
+  );
+
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-// Carbohydrate, fat, and hydration targets are stored in FitnessGoals.
-  const [carbs, setCarbs] = useState(String(goals.dailyCarbs));
-  const [fat, setFat] = useState(String(goals.dailyFat));
-  const [hydration, setHydration] = useState(String(goals.dailyWaterMl));
+  // Load the signed-in user's profile from Supabase.
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadProfile() {
+      setIsLoading(true);
+      setError("");
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (isActive) {
+          setError("Your session could not be verified. Please log in again.");
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const { data, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        if (isActive) {
+          setError(`Could not load your profile: ${profileError.message}`);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const loadedProfile: UserProfile = {
+        name:
+          data?.full_name ??
+          user.user_metadata?.full_name ??
+          user.email ??
+          "",
+        age: Number(data?.age ?? defaultProfile.age),
+        heightCm: Number(data?.height_cm ?? defaultProfile.heightCm),
+        weightKg: Number(data?.weight_kg ?? defaultProfile.weightKg),
+        units: data?.units === "imperial" ? "imperial" : "metric",
+        dietaryPreference:
+          data?.dietary_preference ??
+          defaultProfile.dietaryPreference,
+        activityLevel:
+          data?.activity_level ??
+          defaultProfile.activityLevel,
+      };
+
+      const loadedGoals: FitnessGoals = {
+        type:
+          data?.goal_type === "lose" || data?.goal_type === "gain"
+            ? data.goal_type
+            : "maintain",
+        targetWeightKg: Number(
+          data?.goal_weight_kg ?? defaultGoals.targetWeightKg,
+        ),
+        dailyCalories: Number(
+          data?.daily_calories ?? defaultGoals.dailyCalories,
+        ),
+        dailyProtein: Number(
+          data?.daily_protein ?? defaultGoals.dailyProtein,
+        ),
+        dailyCarbs: Number(
+          data?.daily_carbs ?? defaultGoals.dailyCarbs,
+        ),
+        dailyFat: Number(data?.daily_fat ?? defaultGoals.dailyFat),
+        dailyWaterMl: Number(
+          data?.daily_water_ml ?? defaultGoals.dailyWaterMl,
+        ),
+      };
+
+      if (!isActive) return;
+
+      setName(loadedProfile.name);
+      setAge(String(loadedProfile.age));
+      setHeight(
+        String(toDisplayHeight(loadedProfile.heightCm, loadedProfile.units)),
+      );
+      setCurrentWeight(
+        String(toDisplayWeight(loadedProfile.weightKg, loadedProfile.units)),
+      );
+      setTargetWeight(
+        String(
+          toDisplayWeight(loadedGoals.targetWeightKg, loadedProfile.units),
+        ),
+      );
+      setActivityLevel(activityToKey(loadedProfile.activityLevel));
+      setDietaryPreference(loadedProfile.dietaryPreference);
+      setUnit(loadedProfile.units);
+      setGoalType(loadedGoals.type);
+      setCalories(String(loadedGoals.dailyCalories));
+      setProtein(String(loadedGoals.dailyProtein));
+      setCarbs(String(loadedGoals.dailyCarbs));
+      setFat(String(loadedGoals.dailyFat));
+      setHydration(String(loadedGoals.dailyWaterMl));
+
+      setInitialData({
+        profile: loadedProfile,
+        goals: loadedGoals,
+      });
+
+      setIsLoading(false);
+    }
+
+    loadProfile();
+
+    return () => {
+      isActive = false;
+    };
+  }, [supabase]);
 
   const changeUnit = (nextUnit: UnitSystem) => {
     if (nextUnit === unit) return;
@@ -202,9 +337,9 @@ const currentWeight =
       return;
     }
 
-    setCurrentWeightInput(
-  String(toDisplayWeight(toKg(weight, unit), nextUnit)),
-);
+    setCurrentWeight(
+      String(toDisplayWeight(toKg(weight, unit), nextUnit)),
+    );
     setTargetWeight(
       String(toDisplayWeight(toKg(target, unit), nextUnit)),
     );
@@ -217,44 +352,45 @@ const currentWeight =
     setError("");
   };
 
-  
-const resetForm = () => {
-  setName(initialProfile.name);
-  setAge(String(initialProfile.age));
-  setHeight(
-    String(toDisplayHeight(initialProfile.heightCm, initialProfile.units)),
-  );
-  setCurrentWeightInput(null);
-  setTargetWeight(
-    String(toDisplayWeight(initialGoals.targetWeightKg, initialProfile.units)),
-  );
-  setActivityLevel(activityToKey(initialProfile.activityLevel));
-  setDietaryPreference(initialProfile.dietaryPreference);
-  setUnit(initialProfile.units);
-  setGoalType(initialGoals.type);
-  setCalories(String(initialGoals.dailyCalories));
-  setProtein(String(initialGoals.dailyProtein));
-  setCarbs(String(initialGoals.dailyCarbs));
-  setFat(String(initialGoals.dailyFat));
-  setHydration(String(initialGoals.dailyWaterMl));
+  // Restore the last values loaded from or saved to Supabase.
+  const resetForm = () => {
+    if (!initialData) return;
 
-  setSaved(false);
-  setError("");
+    const { profile, goals } = initialData;
 
-  updateProfile({ ...initialProfile });
-  updateGoals({ ...initialGoals });
-};
+    setName(profile.name);
+    setAge(String(profile.age));
+    setHeight(String(toDisplayHeight(profile.heightCm, profile.units)));
+    setCurrentWeight(
+      String(toDisplayWeight(profile.weightKg, profile.units)),
+    );
+    setTargetWeight(
+      String(toDisplayWeight(goals.targetWeightKg, profile.units)),
+    );
+    setActivityLevel(activityToKey(profile.activityLevel));
+    setDietaryPreference(profile.dietaryPreference);
+    setUnit(profile.units);
+    setGoalType(goals.type);
+    setCalories(String(goals.dailyCalories));
+    setProtein(String(goals.dailyProtein));
+    setCarbs(String(goals.dailyCarbs));
+    setFat(String(goals.dailyFat));
+    setHydration(String(goals.dailyWaterMl));
 
-  const saveChanges = () => {
+    setSaved(false);
+    setError("");
+  };
+
+  const saveChanges = async () => {
     const ageValue = Number(age);
-    const carbValue = Number(carbs);
-const fatValue = Number(fat);
-const hydrationValue = Number(hydration);
     const heightValue = Number(height);
     const weightValue = Number(currentWeight);
     const targetValue = Number(targetWeight);
     const calorieValue = Number(calories);
     const proteinValue = Number(protein);
+    const carbValue = Number(carbs);
+    const fatValue = Number(fat);
+    const hydrationValue = Number(hydration);
 
     if (!name.trim()) {
       setError("Please enter your name.");
@@ -281,19 +417,19 @@ const hydrationValue = Number(hydration);
     }
 
     const currentWeightKg = toKg(weightValue, unit);
-const targetWeightKg = toKg(targetValue, unit);
+    const targetWeightKg = toKg(targetValue, unit);
 
-if (
-  !Number.isFinite(weightValue) ||
-  !Number.isFinite(targetValue) ||
-  currentWeightKg < 20 ||
-  currentWeightKg > 350 ||
-  targetWeightKg < 20 ||
-  targetWeightKg > 350
-) {
-  setError("Current and target weight must be between 20 and 350 kg.");
-  return;
-}
+    if (
+      !Number.isFinite(weightValue) ||
+      !Number.isFinite(targetValue) ||
+      currentWeightKg < 20 ||
+      currentWeightKg > 350 ||
+      targetWeightKg < 20 ||
+      targetWeightKg > 350
+    ) {
+      setError("Current and target weight must be between 20 and 350 kg.");
+      return;
+    }
 
     if (
       !Number.isInteger(calorieValue) ||
@@ -314,34 +450,48 @@ if (
     }
 
     if (
-  !Number.isInteger(carbValue) ||
-  carbValue < 1 ||
-  carbValue > 600
-) {
-  setError("Daily carbohydrates must be between 1 and 600 grams.");
-  return;
-}
+      !Number.isInteger(carbValue) ||
+      carbValue < 1 ||
+      carbValue > 600
+    ) {
+      setError("Daily carbohydrates must be between 1 and 600 grams.");
+      return;
+    }
 
-if (
-  !Number.isInteger(fatValue) ||
-  fatValue < 1 ||
-  fatValue > 200
-) {
-  setError("Daily fat must be between 1 and 200 grams.");
-  return;
-}
+    if (
+      !Number.isInteger(fatValue) ||
+      fatValue < 1 ||
+      fatValue > 200
+    ) {
+      setError("Daily fat must be between 1 and 200 grams.");
+      return;
+    }
 
-if (
-  !Number.isInteger(hydrationValue) ||
-  hydrationValue < 250 ||
-  hydrationValue > 10000
-) {
-  setError("Daily hydration must be between 250 and 10,000 mL.");
-  return;
-}
+    if (
+      !Number.isInteger(hydrationValue) ||
+      hydrationValue < 250 ||
+      hydrationValue > 10000
+    ) {
+      setError("Daily hydration must be between 250 and 10,000 mL.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaved(false);
+    setError("");
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setError("Your session has expired. Please log in again.");
+      setIsSaving(false);
+      return;
+    }
 
     const updatedProfile: UserProfile = {
-      ...profile,
       name: name.trim(),
       age: ageValue,
       heightCm: Number(toCm(heightValue, unit).toFixed(1)),
@@ -352,18 +502,50 @@ if (
     };
 
     const updatedGoals: FitnessGoals = {
-  ...goals,
-  type: goalType,
-  targetWeightKg: Number(toKg(targetValue, unit).toFixed(2)),
-  dailyCalories: calorieValue,
-  dailyProtein: proteinValue,
-  dailyCarbs: carbValue,
-  dailyFat: fatValue,
-  dailyWaterMl: hydrationValue,
-};
+      type: goalType,
+      targetWeightKg: Number(toKg(targetValue, unit).toFixed(2)),
+      dailyCalories: calorieValue,
+      dailyProtein: proteinValue,
+      dailyCarbs: carbValue,
+      dailyFat: fatValue,
+      dailyWaterMl: hydrationValue,
+    };
 
-    updateProfile(updatedProfile);
-    updateGoals(updatedGoals);
+    const { error: saveError } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          full_name: updatedProfile.name,
+          age: updatedProfile.age,
+          height_cm: updatedProfile.heightCm,
+          weight_kg: updatedProfile.weightKg,
+          goal_weight_kg: updatedGoals.targetWeightKg,
+          activity_level: updatedProfile.activityLevel,
+          units: updatedProfile.units,
+          dietary_preference: updatedProfile.dietaryPreference,
+          goal_type: updatedGoals.type,
+          daily_calories: updatedGoals.dailyCalories,
+          daily_protein: updatedGoals.dailyProtein,
+          daily_carbs: updatedGoals.dailyCarbs,
+          daily_fat: updatedGoals.dailyFat,
+          daily_water_ml: updatedGoals.dailyWaterMl,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+
+    setIsSaving(false);
+
+    if (saveError) {
+      setError(`Could not save your profile: ${saveError.message}`);
+      return;
+    }
+
+    setInitialData({
+      profile: updatedProfile,
+      goals: updatedGoals,
+    });
 
     setSaved(true);
     setError("");
@@ -379,13 +561,25 @@ if (
   const macroCalories = proteinCalories + carbCalories + fatCalories;
   const macroPercent = (value: number) =>
     macroCalories ? Math.round((value / macroCalories) * 100) : 0;
+  if (isLoading) {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-lime-300/20 border-t-lime-300" />
+        <p className="mt-4 text-sm text-zinc-400">
+          Loading your profile...
+        </p>
+      </div>
+    </div>
+  );
+}
 
   return (
   <div className="mx-auto max-w-[1500px] space-y-6">
         <header className="space-y-2">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-lime-300">
             <span className="h-2 w-2 rounded-full bg-lime-300" />
-            Demo configuration · Phase 2
+            Your account · Profile settings
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Profile &amp; Fitness Goals
@@ -399,11 +593,10 @@ if (
         <div className="flex items-start gap-3 rounded-xl border border-lime-300/15 bg-lime-300/5 p-4">
           <Info size={18} className="mt-0.5 shrink-0 text-lime-300" />
           <p className="text-xs leading-5 text-zinc-400">
-            <strong className="text-lime-300">Sample data only.</strong> Saved
-            profile and nutrition goals update the in-memory demo store.
-            Changes are not permanently stored and will reset when the demo
-            provider is reinitialized.
-          </p>
+  <strong className="text-lime-300">Your personal profile.</strong>{" "}
+  Your profile and fitness targets are saved securely to your account.
+  You can return anytime to update your information.
+</p>
         </div>
 
         {error && (
@@ -421,7 +614,7 @@ if (
             className="flex items-center gap-2 rounded-xl border border-lime-300/20 bg-lime-300/5 px-4 py-3 text-sm text-lime-300"
           >
             <Check size={17} />
-            Profile and fitness goals updated in demo state.
+            Profile and fitness goals saved successfully!
           </div>
         )}
 
@@ -563,7 +756,7 @@ if (
                   label="Current weight"
                   value={currentWeight}
                   onChange={(value) => {
-  setCurrentWeightInput(value);
+  setCurrentWeight(value);
   setSaved(false);
 }}
                   min={1}
@@ -619,7 +812,7 @@ if (
                 <div>
                   <h2 className="font-bold text-white">Dietary preference</h2>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Used as a demo profile setting
+                    Your saved dietary preference
                   </p>
                 </div>
               </div>
@@ -944,7 +1137,7 @@ if (
                 <div>
                   <h2 className="font-bold text-white">Hydration preview</h2>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Sample daily water goal
+                    Your daily water target
                   </p>
                 </div>
               </div>
@@ -964,7 +1157,7 @@ if (
                   suffix="mL"
                 />
                 <p className="mt-2 text-xs text-zinc-500">
-                  This target is saved to your demo profile and is used as your daily hydration goal.
+                  This target is saved to your account as your daily hydration goal.
                 </p>
               </div>
             </section>
@@ -973,6 +1166,7 @@ if (
               <button
                 type="button"
                 onClick={resetForm}
+                disabled={isLoading || isSaving}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111512] px-5 py-3 text-sm font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
               >
                 <RotateCcw size={16} />
@@ -981,10 +1175,11 @@ if (
               <button
                 type="button"
                 onClick={saveChanges}
+                disabled={isLoading || isSaving}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-lime-300 px-6 py-3 text-sm font-bold text-zinc-950 transition-colors hover:bg-lime-200 focus:outline-none focus:ring-2 focus:ring-lime-300 focus:ring-offset-2 focus:ring-offset-[#080a09]"
               >
                 <Save size={16} />
-                Save profile &amp; goals
+                {isSaving ? "Saving..." : "Save profile & goals"}
               </button>
             </div>
           </div>

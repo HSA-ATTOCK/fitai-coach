@@ -1,48 +1,59 @@
 
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { MailCheck, ArrowLeft, RefreshCw, ShieldCheck } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  MailCheck,
+  ArrowLeft,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
 
 export default function VerifyEmailPage() {
-  const [code, setCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [verified, setVerified] = useState(false);
-  const [email, setEmail] = useState("athlete@example.com");
-const [name, setName] = useState("");
 
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
+  const supabase = createClient();
 
-  const registeredEmail = params.get("email");
-  const registeredName = params.get("name");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
 
-  if (registeredEmail) {
-    setEmail(registeredEmail);
-  }
+    setEmail(params.get("email") || "");
+    setName(params.get("name") || "");
+  }, []);
 
-  if (registeredName) {
-    setName(registeredName);
-  }
-}, []);
+  async function handleResendEmail() {
+    if (!email) {
+      setError("Email address is missing. Please sign up again.");
+      return;
+    }
 
-  function handleVerify(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    setLoading(true);
     setError("");
+    setMessage("");
 
-    if (!/^\d{6}$/.test(code)) {
-      setError("Please enter a valid 6-digit verification code.");
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+      },
+    });
+
+    setLoading(false);
+
+    if (resendError) {
+      setError(resendError.message);
       return;
     }
 
-    // Demo-only verification. No real email or OTP service is connected.
-    if (code !== "123456") {
-      setError("Invalid demo code. Please use 123456.");
-      return;
-    }
-
-    setVerified(true);
+    setMessage("Confirmation email request submitted. Please check your inbox and spam folder.");
   }
 
   return (
@@ -50,7 +61,7 @@ useEffect(() => {
       <div className="mx-auto flex w-full max-w-[480px] flex-col justify-center py-8">
         <section className="rounded-2xl border border-[#424935] bg-[#1a1c1b] p-6 shadow-2xl sm:p-8">
           <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#b0f734]/20 bg-[#b0f734]/10 text-[#b0f734]">
-            {verified ? <ShieldCheck size={28} /> : <MailCheck size={28} />}
+            <MailCheck size={28} />
           </div>
 
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#96da06]">
@@ -58,90 +69,71 @@ useEffect(() => {
           </p>
 
           <h1 className="text-3xl font-extrabold tracking-tight text-white">
-            {verified
-  ? "Email Verified!"
-  : name
-    ? `Welcome, ${name}!`
-    : "Check Your Email"}
+            {name ? `Welcome, ${name}!` : "Check Your Email"}
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-[#a4ada5]">
-            {verified
-              ? "Your demo email verification is complete. You can continue to the login page."
-              : "We've prepared a demo verification step. Enter the 6-digit code below to continue."}
+            Your account has been created. We've requested an email
+            confirmation link. Open the link in your email to verify your
+            address and access your FitAI Coach dashboard.
           </p>
 
-          {!verified && (
-            <>
-              <div className="mt-6 rounded-xl border border-[#424935] bg-[#121413] p-4">
-                <p className="text-xs text-[#737d73]">Verification email</p>
-                <p className="mt-1 break-all text-sm font-semibold text-white">
-  {email}
-</p>
-              </div>
+          <div className="mt-6 rounded-xl border border-[#424935] bg-[#121413] p-4">
+            <p className="text-xs text-[#737d73]">
+              Confirmation email address
+            </p>
+            <p className="mt-1 break-all text-sm font-semibold text-white">
+              {email || "Email address unavailable"}
+            </p>
+          </div>
 
-              <form onSubmit={handleVerify} className="mt-7 space-y-5">
-                <div>
-                  <label htmlFor="otp" className="mb-3 block text-sm font-medium text-white">
-                    Enter verification code
-                  </label>
-
-                  <input
-                    id="otp"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    value={code}
-                    onChange={(event) =>
-                      setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    placeholder="000000"
-                    className="w-full rounded-xl border border-[#424935] bg-[#121413] px-4 py-4 text-center text-2xl font-bold tracking-[0.5em] text-[#b0f734] outline-none transition placeholder:text-[#424935] focus:border-[#b0f734] focus:ring-2 focus:ring-[#b0f734]/20"
-                  />
-
-                  <p className="mt-2 text-[10px] text-[#737d73]">
-                    Demo verification code: 123456
-                  </p>
-                </div>
-
-                {error && (
-                  <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
-                    {error}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-[#b0f734] px-5 py-3.5 text-sm font-bold text-[#121413] transition hover:bg-[#96da06]"
-                >
-                  Verify Email
-                </button>
-              </form>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCode("");
-                  setError("");
-                  alert("Demo only: a real verification email is not sent.");
-                }}
-                className="mt-5 flex w-full items-center justify-center gap-2 text-xs font-semibold text-[#b0f734] hover:underline"
-              >
-                <RefreshCw size={14} />
-                Resend verification code
-              </button>
-            </>
+          {message && (
+            <p
+              role="status"
+              className="mt-5 rounded-lg border border-[#b0f734]/30 bg-[#b0f734]/10 p-3 text-xs text-[#b0f734]"
+            >
+              {message}
+            </p>
           )}
 
-          {verified && (
+          {error && (
+            <p
+              role="alert"
+              className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300"
+            >
+              {error}
+            </p>
+          )}
+
+          <div className="mt-7 space-y-4">
+            <button
+              type="button"
+              onClick={handleResendEmail}
+              disabled={loading || !email}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#b0f734] px-5 py-3.5 text-sm font-bold text-[#121413] transition hover:bg-[#96da06] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw
+                size={15}
+                className={loading ? "animate-spin" : ""}
+              />
+              {loading ? "Sending..." : "Resend Confirmation Email"}
+            </button>
+
             <Link
               href="/login"
-              className="mt-7 flex w-full items-center justify-center rounded-xl bg-[#b0f734] px-5 py-3.5 text-sm font-bold text-[#121413] transition hover:bg-[#96da06]"
+              className="flex w-full items-center justify-center rounded-xl border border-[#424935] px-5 py-3.5 text-sm font-semibold text-white transition hover:border-[#b0f734] hover:text-[#b0f734]"
             >
               Continue to Login
             </Link>
-          )}
+          </div>
+
+          <div className="mt-6 flex items-start gap-3 rounded-xl bg-[#121413] p-4">
+            <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#b0f734]" />
+            <p className="text-xs leading-5 text-[#737d73]">
+              If you don't see the email, check your spam folder. The
+              confirmation link will take you back to FitAI Coach.
+            </p>
+          </div>
 
           <Link
             href="/signup"
@@ -153,7 +145,7 @@ useEffect(() => {
         </section>
 
         <p className="mt-5 text-center text-[10px] uppercase tracking-wider text-[#737d73]">
-          Demo Mode · Email delivery not connected
+          Secure Authentication · Supabase
         </p>
       </div>
     </AuthShell>

@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { createClient } from "@/lib/supabase/client";
 import { Eye, EyeOff, UserRound, Mail, Lock } from "lucide-react";
 
 export default function SignupPage() {
-    const router = useRouter();
+  const router = useRouter();
+  const supabase = createClient();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,8 +20,9 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSignup(event: FormEvent<HTMLFormElement>) {
+  async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
@@ -37,9 +41,46 @@ export default function SignupPage() {
       return;
     }
 
-    router.push(
-  `/verify-email?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`
-);
+    setLoading(true);
+
+    try {
+      const { data, error: signupError } =
+        await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              full_name: name.trim(),
+            },
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          },
+        });
+
+      if (signupError) {
+        setError(signupError.message);
+        return;
+      }
+
+      if (!data.user) {
+        setError("Registration could not be completed. Please try again.");
+        return;
+      }
+
+      if (data.session) {
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
+
+      router.push(
+        `/verify-email?email=${encodeURIComponent(email.trim())}&name=${encodeURIComponent(name.trim())}`
+      );
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -63,7 +104,7 @@ export default function SignupPage() {
           <button
             type="button"
             onClick={() =>
-              alert("Google sign-up is a demo feature. Authentication is not connected.")
+              setError("Google sign-up is not configured yet. Please register using email.")
             }
             className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#424935] bg-[#121413] px-4 py-3 text-sm font-semibold text-white transition hover:border-[#b0f734]"
           >
@@ -149,6 +190,7 @@ export default function SignupPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+
               <p className="mt-2 text-[10px] text-[#737d73]">
                 Use at least 8 characters.
               </p>
@@ -203,16 +245,20 @@ export default function SignupPage() {
             </label>
 
             {error && (
-              <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+              <p
+                role="alert"
+                className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300"
+              >
                 {error}
               </p>
             )}
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-[#b0f734] px-5 py-3.5 text-sm font-bold text-[#121413] transition hover:bg-[#96da06]"
+              disabled={loading}
+              className="w-full rounded-xl bg-[#b0f734] px-5 py-3.5 text-sm font-bold text-[#121413] transition hover:bg-[#96da06] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create Account
+              {loading ? "Creating Account..." : "Create Account"}
             </button>
           </form>
 
@@ -226,7 +272,7 @@ export default function SignupPage() {
 
         <div className="mt-5 text-center">
           <p className="text-[10px] uppercase tracking-wider text-[#737d73]">
-            Demo Mode · Account creation not connected
+            Secure Authentication · Supabase
           </p>
         </div>
       </div>

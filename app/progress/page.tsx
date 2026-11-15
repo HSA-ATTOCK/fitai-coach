@@ -30,9 +30,30 @@ import {
 } from "recharts";
 
 // import { AppShell } from "@/components/layout/app-shell";
-import { useDemo } from "@/lib/demo/demo-store";
+import { createClient } from "@/lib/supabase/client";
 
-type Range = 7 | 30 | 90;
+type Range = 1 | 7 | 30 | 90;
+type ProgressWeight = {
+  id: string;
+  date: string;
+  weightKg: number;
+};
+
+type ProgressFood = {
+  id: string;
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
+type ProgressActivity = {
+  id: string;
+  date: string;
+  name: string;
+  minutes: number;
+};
 
 const chartTooltip = {
   contentStyle: {
@@ -103,13 +124,155 @@ function MetricCard({
 }
 
 export default function ProgressPage() {
-  const {
-    profile,
-    goals,
-    foodEntries,
-    weightEntries,
-    activityEntries,
-  } = useDemo();
+  const [profile, setProfile] = useState({
+  weightKg: 0,
+});
+
+const [goals, setGoals] = useState({
+  dailyCalories: 2000,
+  dailyProtein: 120,
+  targetWeightKg: 0,
+});
+
+const [weightEntries, setWeightEntries] = useState<ProgressWeight[]>([]);
+const [foodEntries, setFoodEntries] = useState<ProgressFood[]>([]);
+const [activityEntries, setActivityEntries] = useState<ProgressActivity[]>([]);
+
+const [isLoading, setIsLoading] = useState(true);
+const [loadError, setLoadError] = useState("");
+
+useEffect(() => {
+  const supabase = createClient();
+  let active = true;
+
+  async function loadProgressData() {
+    try {
+      setLoadError("");
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+
+      if (!user) {
+        throw new Error("You must be logged in to view your progress.");
+      }
+
+      const [
+        profileResult,
+        weightsResult,
+        mealsResult,
+        activitiesResult,
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "weight_kg, goal_weight_kg, daily_calories, daily_protein"
+          )
+          .eq("id", user.id)
+          .maybeSingle(),
+
+        supabase
+          .from("weight_logs")
+          .select("id, weight_kg, logged_at")
+          .eq("user_id", user.id)
+          .order("logged_at", { ascending: true }),
+
+        supabase
+          .from("meals")
+          .select(
+            "id, calories, protein_g, carbs_g, fat_g, logged_at"
+          )
+          .eq("user_id", user.id)
+          .order("logged_at", { ascending: true }),
+
+        supabase
+          .from("activities")
+          .select("id, activity_type, duration_minutes, logged_at")
+          .eq("user_id", user.id)
+          .order("logged_at", { ascending: false }),
+      ]);
+
+      if (profileResult.error) throw profileResult.error;
+      if (weightsResult.error) throw weightsResult.error;
+      if (mealsResult.error) throw mealsResult.error;
+      if (activitiesResult.error) throw activitiesResult.error;
+
+      if (!active) return;
+
+      const savedProfile = profileResult.data;
+
+      setProfile({
+        weightKg: Number(savedProfile?.weight_kg ?? 0),
+      });
+
+      setGoals({
+        dailyCalories: Number(savedProfile?.daily_calories ?? 2000),
+        dailyProtein: Number(savedProfile?.daily_protein ?? 120),
+        targetWeightKg: Number(savedProfile?.goal_weight_kg ?? 0),
+      });
+
+      setWeightEntries(
+        (weightsResult.data ?? []).map((entry) => ({
+          id: entry.id,
+          date: entry.logged_at,
+          weightKg: Number(entry.weight_kg),
+        }))
+      );
+
+      setFoodEntries(
+        (mealsResult.data ?? []).map((entry) => ({
+          id: entry.id,
+          date: entry.logged_at,
+          calories: Number(entry.calories ?? 0),
+          protein: Number(entry.protein_g ?? 0),
+          carbs: Number(entry.carbs_g ?? 0),
+          fat: Number(entry.fat_g ?? 0),
+        }))
+      );
+
+      setActivityEntries(
+        (activitiesResult.data ?? []).map((entry) => ({
+          id: entry.id,
+          date: entry.logged_at,
+          name: entry.activity_type
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (letter: string) => letter.toUpperCase()),
+          minutes: Number(entry.duration_minutes ?? 0),
+        }))
+      );
+    } catch (error) {
+      console.error("Progress data loading error:", error);
+
+      if (active) {
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load your progress data."
+        );
+      }
+    } finally {
+      if (active) setIsLoading(false);
+    }
+  }
+
+  loadProgressData();
+
+  const handleRefresh = () => {
+    loadProgressData();
+  };
+
+  window.addEventListener("focus", handleRefresh);
+  window.addEventListener("fitai:data-updated", handleRefresh);
+
+  return () => {
+    active = false;
+    window.removeEventListener("focus", handleRefresh);
+    window.removeEventListener("fitai:data-updated", handleRefresh);
+  };
+}, []);
 
   
   const [range, setRange] = useState<Range>(30);
@@ -413,43 +576,46 @@ const weightChange =
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
               Track your recorded weight, nutrition, and activity over time.
-              All figures come from your current demo data.
+              All figures are based on your recorded fitness data.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2 rounded-xl border border-white/5 bg-[#111512] p-1">
-            {([7, 30, 90] as const).map((days) => (
-              <button
-                key={days}
-                type="button"
-                onClick={() => setRange(days)}
-                aria-pressed={range === days}
-                className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
-                  range === days
-                    ? "bg-lime-300 text-zinc-950"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                }`}
-              >
-                {days} DAYS
-              </button>
-            ))}
+            {(
+  [
+    { days: 1, label: "DAILY" },
+    { days: 7, label: "7 DAYS" },
+    { days: 30, label: "30 DAYS" },
+    { days: 90, label: "90 DAYS" },
+  ] as const
+).map(({ days, label }) => (
+  <button
+    key={days}
+    type="button"
+    onClick={() => setRange(days)}
+    aria-pressed={range === days}
+    className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+      range === days
+        ? "bg-lime-300 text-zinc-950"
+        : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+    }`}
+  >
+    {label}
+  </button>
+))}
           </div>
         </div>
 
-        <div className="flex items-start gap-3 rounded-xl border border-lime-300/10 bg-lime-300/5 p-4">
-          <Info size={17} className="mt-0.5 shrink-0 text-lime-300" />
-          <p className="text-xs leading-5 text-zinc-400">
-            <span className="font-semibold text-lime-300">Demo mode:</span>{" "}
-            only recorded sample entries are shown. Days without food logs
-            appear as zero in the calorie chart; they do not mean you consumed
-            zero calories. No live services are connected.
-          </p>
-        </div>
+        {loadError && (
+  <div className="rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-300">
+    {loadError}
+  </div>
+)}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Current weight"
-            value={latestWeight.toFixed(1)}
+            value={latestWeight > 0 ? latestWeight.toFixed(1) : "—"}
             unit="kg"
             detail={
               weightChange === null
@@ -475,7 +641,11 @@ const weightChange =
             unit="g/day"
             detail={
               loggedDays
-                ? `Goal: ${goals.dailyProtein} g · ${averageProtein >= goals.dailyProtein ? "goal reached on average" : "below daily goal"}`
+                ? `Goal: ${goals.dailyProtein} g · ${
+  averageProtein >= goals.dailyProtein
+    ? "goal reached on average"
+    : "below daily goal"
+}`
                 : "No food records in this period"
             }
             icon={Utensils}
@@ -544,17 +714,19 @@ const weightChange =
     "Weight",
   ]}
 />
-                    <ReferenceLine
-                      y={goals.targetWeightKg}
-                      stroke="#64748b"
-                      strokeDasharray="5 5"
-                      label={{
-                        value: `Goal ${goals.targetWeightKg} kg`,
-                        fill: "#94a3b8",
-                        fontSize: 10,
-                        position: "insideTopRight",
-                      }}
-                    />
+                    {goals.targetWeightKg > 0 && (
+  <ReferenceLine
+    y={goals.targetWeightKg}
+    stroke="#64748b"
+    strokeDasharray="5 5"
+    label={{
+      value: `Goal ${goals.targetWeightKg} kg`,
+      fill: "#94a3b8",
+      fontSize: 10,
+      position: "insideTopRight",
+    }}
+  />
+)}
                     <Line
                       type="monotone"
                       dataKey="weight"
@@ -596,7 +768,7 @@ const weightChange =
                   Latest recorded
                 </p>
                 <p className="mt-1 text-lg font-bold text-white">
-                  {latestWeight.toFixed(1)} kg
+                  {latestWeight > 0 ? `${latestWeight.toFixed(1)} kg` : "Not recorded"}
                 </p>
               </div>
               <div>
@@ -604,7 +776,9 @@ const weightChange =
                   Target weight
                 </p>
                 <p className="mt-1 text-lg font-bold text-lime-300">
-                  {goals.targetWeightKg.toFixed(1)} kg
+                  {goals.targetWeightKg > 0
+  ? `${goals.targetWeightKg.toFixed(1)} kg`
+  : "Not set"}
                 </p>
               </div>
               <div className="col-span-2 sm:col-span-1">
@@ -923,8 +1097,8 @@ const weightChange =
 
         <p className="flex items-start gap-2 pb-2 text-xs leading-5 text-zinc-500">
           <Info size={15} className="mt-0.5 shrink-0" />
-          These charts summarize demo records and are not medical advice.
-          Missing records are not estimates of actual intake or activity.
+          These charts summarize your recorded fitness data and are not medical advice.
+Missing records are not estimates of actual intake or activity.
         </p>
       </div>
   );

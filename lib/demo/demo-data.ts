@@ -12,7 +12,7 @@ export const initialDemoState: DemoState = {
     {
       id: "welcome-1",
       role: "assistant",
-      content: "Hey Alex! I’m your FitAI Coach demo. Tell me what you ate, how you moved, or your latest weight. Any nutrition numbers here are illustrative estimates.",
+      content: "Hey! I’m your FitAI Coach. Tell me what you ate, how you moved, or your latest weight. Any nutrition numbers here are illustrative estimates.",
       createdAt: day(0, 9),
     },
   ],
