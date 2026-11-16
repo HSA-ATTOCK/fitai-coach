@@ -9,10 +9,15 @@ import {
   CalendarDays,
   Pencil,
   X,
+  ChevronDown,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import type { FoodEntry, MealCategory } from "@/types/fitness";
+import type {
+  FoodEntry,
+  MealCategory,
+  NutritionIngredient,
+} from "@/types/fitness";
 import {
   Card,
   EmptyState,
@@ -59,7 +64,8 @@ useEffect(() => {
 }, []);
 
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
+const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
+const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
 
   // Load meals from Supabase
   useEffect(() => {
@@ -81,8 +87,8 @@ useEffect(() => {
       const { data, error: mealsError } = await supabase
         .from("meals")
         .select(
-          "id, meal_type, description, calories, protein_g, carbs_g, fat_g, logged_at"
-        )
+  "id, meal_type, description, calories, protein_g, carbs_g, fat_g, logged_at, ingredients"
+)
         .eq("user_id", user.id)
         .order("logged_at", { ascending: false });
 
@@ -93,16 +99,19 @@ useEffect(() => {
       }
 
       const meals: FoodEntry[] = (data ?? []).map((meal) => ({
-        id: meal.id,
-        name: meal.description,
-        category: (meal.meal_type.charAt(0).toUpperCase() +
-  meal.meal_type.slice(1)) as MealCategory,
-        date: meal.logged_at,
-        calories: Number(meal.calories),
-        protein: Number(meal.protein_g),
-        carbs: Number(meal.carbs_g),
-        fat: Number(meal.fat_g),
-      }));
+  id: meal.id,
+  name: meal.description,
+  category: (meal.meal_type.charAt(0).toUpperCase() +
+    meal.meal_type.slice(1)) as MealCategory,
+  date: meal.logged_at,
+  calories: Number(meal.calories),
+  protein: Number(meal.protein_g),
+  carbs: Number(meal.carbs_g),
+  fat: Number(meal.fat_g),
+  ingredients: Array.isArray(meal.ingredients)
+    ? (meal.ingredients as unknown as NutritionIngredient[])
+    : [],
+}));
 
       setFoodEntries(meals);
       setIsLoading(false);
@@ -207,13 +216,13 @@ const filtered = useMemo(
     const { error: updateError } = await supabase
       .from("meals")
       .update({
-        description: editingEntry.name.trim(),
-        meal_type: editingEntry.category,
-        calories: editingEntry.calories,
-        protein_g: editingEntry.protein,
-        carbs_g: editingEntry.carbs,
-        fat_g: editingEntry.fat,
-      })
+  description: editingEntry.name.trim(),
+  meal_type: editingEntry.category.toLowerCase(),
+  calories: editingEntry.calories,
+  protein_g: editingEntry.protein,
+  carbs_g: editingEntry.carbs,
+  fat_g: editingEntry.fat,
+})
       .eq("id", editingEntry.id)
       .eq("user_id", user.id);
 
@@ -403,74 +412,165 @@ const filtered = useMemo(
           )}
 
           {!isLoading &&
-            filtered.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex flex-col gap-3 rounded-xl border border-white/[0.07] bg-[#0d100e] p-4 sm:flex-row sm:items-center"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-lime-300/10 text-lime-300">
-                  <Utensils size={20} />
-                </div>
+  filtered.map((entry) => {
+    const isExpanded = expandedMealId === entry.id;
+    const ingredients = entry.ingredients ?? [];
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">{entry.name}</h3>
-                    <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] text-zinc-400">
-                      {entry.category}
-                    </span>
-                  </div>
+    return (
+      <div key={entry.id} className="space-y-2">
+        {/* Main meal card */}
+        <div className="flex flex-col gap-3 rounded-xl border border-white/[0.07] bg-[#0d100e] p-4 sm:flex-row sm:items-center">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-lime-300/10 text-lime-300">
+            <Utensils size={20} />
+          </div>
 
-                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-600">
-                    <CalendarDays size={12} />
-                    {new Date(entry.date).toLocaleString([], {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold">{entry.name}</h3>
 
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
-                    <span>
-                      <strong className="text-white">{entry.calories}</strong>{" "}
-                      kcal
-                    </span>
-                    <span>
-                      <strong className="text-white">{entry.protein}g</strong>{" "}
-                      protein
-                    </span>
-                    <span>
-                      <strong className="text-white">{entry.carbs}g</strong>{" "}
-                      carbs
-                    </span>
-                    <span>
-                      <strong className="text-white">{entry.fat}g</strong>{" "}
-                      fat
-                    </span>
-                  </div>
-                </div>
+              <span className="rounded-full bg-zinc-800 px-2 py-1 text-[10px] text-zinc-400">
+                {entry.category}
+              </span>
+            </div>
 
-                <div className="flex shrink-0 gap-2 self-start sm:self-center">
-                  <button
-                    type="button"
-                    onClick={() => setEditingEntry({ ...entry })}
-                    aria-label={`Edit ${entry.name}`}
-                    className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-xs text-zinc-400 transition hover:border-lime-300/30 hover:text-lime-300"
+            <p className="mt-1 flex items-center gap-1 text-xs text-zinc-600">
+              <CalendarDays size={12} />
+              {new Date(entry.date).toLocaleString([], {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+              <span>
+                <strong className="text-white">{entry.calories}</strong> kcal
+              </span>
+
+              <span>
+                <strong className="text-white">{entry.protein}g</strong>{" "}
+                protein
+              </span>
+
+              <span>
+                <strong className="text-white">{entry.carbs}g</strong> carbs
+              </span>
+
+              <span>
+                <strong className="text-white">{entry.fat}g</strong> fat
+              </span>
+            </div>
+          </div>
+
+          {/* Meal actions */}
+          <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-center">
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedMealId(isExpanded ? null : entry.id)
+              }
+              aria-expanded={isExpanded}
+              aria-label={`${isExpanded ? "Hide" : "Show"} ingredients for ${entry.name}`}
+              className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-xs text-zinc-400 transition hover:border-lime-300/30 hover:text-lime-300"
+            >
+              Ingredients
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${
+                  isExpanded ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEditingEntry({ ...entry })}
+              aria-label={`Edit ${entry.name}`}
+              className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-xs text-zinc-400 transition hover:border-lime-300/30 hover:text-lime-300"
+            >
+              <Pencil size={14} />
+              Edit
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setConfirmId(entry.id)}
+              aria-label={`Delete ${entry.name}`}
+              className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-xs text-zinc-400 transition hover:border-red-400/30 hover:text-red-300"
+            >
+              <Trash2 size={14} />
+              Remove
+            </button>
+          </div>
+        </div>
+
+        {/* Expanded ingredient details */}
+        {isExpanded && (
+          <div className="rounded-xl border border-lime-300/15 bg-[#101510] p-4 sm:p-5">
+            <h4 className="mb-4 text-sm font-semibold text-lime-300">
+              Ingredient breakdown
+            </h4>
+
+            {ingredients.length > 0 ? (
+              <div className="space-y-3">
+                {ingredients.map((ingredient, index) => (
+                  <div
+                    key={`${entry.id}-ingredient-${index}`}
+                    className="rounded-lg border border-white/[0.06] bg-[#0c0f0d] p-3"
                   >
-                    <Pencil size={14} />
-                    Edit
-                  </button>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm font-semibold text-white">
+                        {ingredient.name}
+                      </p>
 
-                  <button
-                    type="button"
-                    onClick={() => setConfirmId(entry.id)}
-                    aria-label={`Delete ${entry.name}`}
-                    className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-xs text-zinc-400 transition hover:border-red-400/30 hover:text-red-300"
-                  >
-                    <Trash2 size={14} />
-                    Remove
-                  </button>
-                </div>
+                      <span className="text-xs text-zinc-500">
+                        {ingredient.portion}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div>
+                        <p className="text-[10px] text-zinc-500">Calories</p>
+                        <p className="mt-1 text-sm font-semibold text-white">
+                          {ingredient.calories} kcal
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] text-zinc-500">Protein</p>
+                        <p className="mt-1 text-sm font-semibold text-white">
+                          {ingredient.protein}g
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] text-zinc-500">Carbs</p>
+                        <p className="mt-1 text-sm font-semibold text-white">
+                          {ingredient.carbs}g
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] text-zinc-500">Fat</p>
+                        <p className="mt-1 text-sm font-semibold text-white">
+                          {ingredient.fat}g
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <p className="text-sm text-zinc-500">
+                Ingredient details aren't available for this meal. Meals
+                saved before ingredient tracking was enabled won't have
+                individual ingredient information.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  })}
 
           {!isLoading && filtered.length === 0 && (
             <EmptyState

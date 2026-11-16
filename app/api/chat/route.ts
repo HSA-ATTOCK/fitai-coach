@@ -17,13 +17,14 @@ const requestSchema = z.object({
     .max(20),
 });
 
+
 const responseSchema = {
   type: "OBJECT",
   properties: {
     text: { type: "STRING" },
     actionType: {
       type: "STRING",
-      enum: ["none", "food", "water", "weight", "activity"],
+      enum: ["none", "food", "water", "weight", "activity", "workout"],
     },
     foodName: { type: "STRING" },
     mealCategory: {
@@ -57,6 +58,27 @@ const responseSchema = {
     weightKg: { type: "NUMBER" },
     activityName: { type: "STRING" },
     minutes: { type: "NUMBER" },
+    workoutName: { type: "STRING" },
+    exercises: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          exerciseName: { type: "STRING" },
+          sets: { type: "INTEGER" },
+          reps: { type: "INTEGER" },
+          weightKg: { type: "NUMBER" },
+          notes: { type: "STRING" },
+        },
+        required: [
+          "exerciseName",
+          "sets",
+          "reps",
+          "weightKg",
+          "notes",
+        ],
+      },
+    },
   },
   required: [
     "text",
@@ -69,6 +91,8 @@ const responseSchema = {
     "weightKg",
     "activityName",
     "minutes",
+    "workoutName",
+    "exercises",
   ],
 };
 
@@ -81,9 +105,24 @@ const ingredientSchema = z.object({
   fat: z.number().finite().min(0).max(500),
 });
 
+const workoutExerciseSchema = z.object({
+  exerciseName: z.string().trim().min(1).max(100),
+  sets: z.number().int().min(1).max(100),
+  reps: z.number().int().min(1).max(1000),
+  weightKg: z.number().finite().min(0).max(1000),
+  notes: z.string().max(500),
+});
+
 const geminiResponseSchema = z.object({
   text: z.string().min(1).max(2000),
-  actionType: z.enum(["none", "food", "water", "weight", "activity"]),
+  actionType: z.enum([
+  "none",
+  "food",
+  "water",
+  "weight",
+  "activity",
+  "workout",
+]),
   foodName: z.string(),
   mealCategory: z.enum(["Breakfast", "Lunch", "Dinner", "Snack"]),
   notes: z.string(),
@@ -92,6 +131,8 @@ const geminiResponseSchema = z.object({
   weightKg: z.number().finite(),
   activityName: z.string(),
   minutes: z.number().finite(),
+  workoutName: z.string().max(100),
+exercises: z.array(workoutExerciseSchema).max(20),
 });
 
 export async function POST(request: Request) {
@@ -247,6 +288,42 @@ For activity:
 - actionType = "activity"
 - Include activityName and duration in minutes.
 - Only accept 1 to 1440 minutes.
+
+For gym workouts and strength training:
+
+- actionType = "workout"
+- Include workoutName and total workout duration in minutes.
+- Include an exercises array containing each individual exercise.
+- Each exercise must include:
+  - exerciseName
+  - sets
+  - reps
+  - weightKg
+  - notes
+
+- Only accept 1 to 1440 minutes.
+- Only accept 1 to 100 sets.
+- Only accept 1 to 1000 reps per set.
+- Weight must be between 0 and 1000 kg.
+- Use weightKg = 0 for bodyweight exercises when appropriate.
+- Never invent sets, reps, or lifted weight.
+- Ask follow-up questions when important information is missing.
+- Do not create a workout action until the required information is available.
+- Multiple exercises must be returned as separate entries.
+- Do not combine multiple exercises into one entry.
+
+For example:
+"I did bench press 3 sets of 12 reps at 40 kg and
+shoulder press 3 sets of 10 reps at 20 kg for 45 minutes."
+
+Return two separate exercises:
+1. Bench Press: 3 sets, 12 reps, 40 kg.
+2. Shoulder Press: 3 sets, 10 reps, 20 kg.
+
+For normal conversation or clarification:
+- actionType = "none"
+- exercises must be an empty array.
+- workoutName must be an empty string.
 
 For normal conversation or clarification:
 - actionType = "none"
@@ -408,8 +485,38 @@ Keep responses friendly, concise and easy to understand.
           minutes: data.minutes,
         },
       };
-    }
+    } else if (data.actionType === "workout") {
+      if (
+        !data.workoutName.trim() ||
+        data.workoutName.length > 100 ||
+        !Number.isInteger(data.minutes) ||
+        data.minutes < 1 ||
+        data.minutes > 1440 ||
+        data.exercises.length === 0
+      ) {
+        return NextResponse.json(
+          { error: "The AI generated incomplete workout information." },
+          { status: 502 },
+        );
+      }
 
+      action = {
+        kind: "workout",
+        entry: {
+          id,
+          date: now,
+          name: data.workoutName.trim(),
+          minutes: data.minutes,
+          exercises: data.exercises.map((exercise) => ({
+            exerciseName: exercise.exerciseName.trim(),
+            sets: exercise.sets,
+            reps: exercise.reps,
+            weightKg: exercise.weightKg,
+            notes: exercise.notes,
+          })),
+        },
+      };
+    }
     return NextResponse.json({
       text: data.text,
       action,

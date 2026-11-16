@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
+  Dumbbell,
   LayoutDashboard,
   ChartNoAxesCombined,
   Utensils,
@@ -20,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/progress", label: "Progress", icon: ChartNoAxesCombined },
+  { href: "/exercise", label: "Exercise", icon: Dumbbell },
   { href: "/food-history", label: "Food History", icon: Utensils },
   { href: "/profile", label: "Profile & Goals", icon: UserRound },
 ];
@@ -32,7 +34,7 @@ function NavLinks({ mobile = false }: { mobile?: boolean }) {
       aria-label={mobile ? "Mobile navigation" : "Main navigation"}
       className={
         mobile
-          ? "grid grid-cols-4 gap-1"
+          ? "grid grid-cols-5 gap-1"
           : "flex flex-col gap-2"
       }
     >

@@ -534,32 +534,55 @@ const weightChange =
   ];
 
   const tableRows = caloriesChart
-    .filter((day) => day.calories > 0)
-    .map((day) => {
-      const dayEntries = filteredFood.filter(
-        (entry) => dayKey(entry.date) === day.date,
-      );
-      const protein = dayEntries.reduce(
-        (sum, entry) => sum + entry.protein,
-        0,
-      );
-      const weight = filteredWeights
-  .filter((entry) => dayKey(entry.date) === day.date)
-  .sort(
-    (a, b) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime(),
-  )
-  .at(-1);
+  .filter((day) => {
+    const hasActivity = filteredActivities.some(
+      (entry) => dayKey(entry.date) === day.date,
+    );
 
-      return {
-        date: day.date,
-        label: day.label,
-        weight: weight?.weightKg,
-        calories: day.calories,
-        protein,
-        meals: dayEntries.length,
-      };
-    });
+    const hasWeight = filteredWeights.some(
+      (entry) => dayKey(entry.date) === day.date,
+    );
+
+    return day.calories > 0 || hasActivity || hasWeight;
+  })
+  .map((day) => {
+    const dayEntries = filteredFood.filter(
+      (entry) => dayKey(entry.date) === day.date,
+    );
+
+    const dayActivities = filteredActivities.filter(
+      (entry) => dayKey(entry.date) === day.date,
+    );
+
+    const protein = dayEntries.reduce(
+      (sum, entry) => sum + entry.protein,
+      0,
+    );
+
+    const activityMinutes = dayActivities.reduce(
+      (sum, entry) => sum + entry.minutes,
+      0,
+    );
+
+    const weight = filteredWeights
+      .filter((entry) => dayKey(entry.date) === day.date)
+      .sort(
+        (a, b) =>
+          new Date(a.date).getTime() -
+          new Date(b.date).getTime(),
+      )
+      .at(-1);
+
+    return {
+      date: day.date,
+      label: day.label,
+      weight: weight?.weightKg,
+      calories: day.calories,
+      protein,
+      meals: dayEntries.length,
+      activityMinutes,
+    };
+  });
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-6">
@@ -894,7 +917,13 @@ const weightChange =
                     />
                     <XAxis
                       dataKey="label"
-                      interval={range === 7 ? 0 : range === 30 ? 4 : 13}
+                      interval={
+  range === 1 || range === 7
+    ? 0
+    : range === 30
+      ? 4
+      : 13
+}
                       tick={{ fill: "#8e988e", fontSize: 10 }}
                       axisLine={false}
                       tickLine={false}
@@ -1031,7 +1060,7 @@ const weightChange =
               <div>
                 <h2 className="font-bold text-white">Recorded data table</h2>
                 <p className="mt-1 text-xs text-zinc-500">
-                  An accessible tabular view of logged nutrition and weight.
+                  An accessible view of your recorded nutrition, weight, and workouts.
                 </p>
               </div>
             </div>
@@ -1060,6 +1089,7 @@ const weightChange =
                       <th className="px-4 py-3 font-semibold">Calories</th>
                       <th className="px-4 py-3 font-semibold">Protein</th>
                       <th className="px-4 py-3 font-semibold">Food records</th>
+<th className="px-4 py-3 font-semibold">Activity</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
@@ -1080,15 +1110,18 @@ const weightChange =
                           {row.protein} g
                         </td>
                         <td className="px-4 py-3 text-zinc-300">
-                          {row.meals}
-                        </td>
+  {row.meals}
+</td>
+<td className="px-4 py-3 font-medium text-lime-300">
+  {row.activityMinutes} min
+</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
                 <p className="p-6 text-sm text-zinc-500">
-                  No food records are available for this period.
+                  No fitness records are available for this period.
                 </p>
               )}
             </div>

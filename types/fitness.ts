@@ -46,6 +46,26 @@ export interface ActivityEntry {
   minutes: number;
 }
 
+export interface WorkoutExerciseEntry {
+  id?: string;
+  exerciseName: string;
+  sets: number;
+  reps: number;
+  weightKg: number;
+  notes?: string;
+}
+
+export interface WorkoutEntry {
+  id: string;
+  date: string;
+  name: string;
+  minutes: number;
+  caloriesBurned?: number;
+  distanceKm?: number;
+  notes?: string;
+  exercises: WorkoutExerciseEntry[];
+}
+
 export interface WaterEntry {
   id: string;
   date: string;

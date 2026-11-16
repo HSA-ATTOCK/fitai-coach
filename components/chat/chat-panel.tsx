@@ -361,6 +361,7 @@ function updateFoodIngredient(
     carbs_g: pending.entry.carbs,
     fat_g: pending.entry.fat,
     logged_at: pending.entry.date,
+    ingredients: pending.entry.ingredients ?? [],
   });
 
       if (insertError) {
@@ -465,6 +466,79 @@ function updateFoodIngredient(
     id: `confirm-${crypto.randomUUID()}`,
     role: "assistant",
     content: `Successfully saved your ${pending.entry.name.toLowerCase()} activity (${pending.entry.minutes} minutes) to your account.`,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+
+else if (pending.kind === "workout") {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) throw userError;
+
+  if (!user) {
+    throw new Error("Please log in before saving workouts.");
+  }
+
+  // First, save the main workout session.
+  const { data: activity, error: activityError } = await supabase
+    .from("activities")
+    .insert({
+      user_id: user.id,
+      activity_type: pending.entry.name.toLowerCase(),
+      duration_minutes: pending.entry.minutes,
+      calories_burned: pending.entry.caloriesBurned ?? 0,
+      distance_km: pending.entry.distanceKm ?? null,
+      notes: "Gym workout logged via FitAI chat",
+      logged_at: pending.entry.date,
+    })
+    .select("id")
+    .single();
+
+  if (activityError) throw activityError;
+
+  // Then, save every individual exercise.
+  const exerciseRows = pending.entry.exercises.map((exercise) => ({
+    activity_id: activity.id,
+    user_id: user.id,
+    exercise_name: exercise.exerciseName,
+    sets: exercise.sets,
+    reps: exercise.reps,
+    weight_kg: exercise.weightKg,
+    notes: exercise.notes || null,
+  }));
+
+  const { error: exerciseError } = await supabase
+    .from("workout_exercises")
+    .insert(exerciseRows);
+
+  if (exerciseError) {
+    // Roll back the workout if its exercises cannot be saved.
+    const { error: rollbackError } = await supabase
+      .from("activities")
+      .delete()
+      .eq("id", activity.id)
+      .eq("user_id", user.id);
+
+    if (rollbackError) {
+      console.error("Workout rollback failed:", rollbackError);
+      throw new Error(
+        "Exercise saving failed, and the workout could not be rolled back. Please check your Exercise History."
+      );
+    }
+
+    throw new Error(
+      `Could not save workout exercises: ${exerciseError.message}`
+    );
+  }
+
+  addMessage({
+    id: `confirm-${crypto.randomUUID()}`,
+    role: "assistant",
+    content: `Successfully saved your ${pending.entry.name} workout with ${pending.entry.exercises.length} exercises (${pending.entry.minutes} minutes).`,
     createdAt: new Date().toISOString(),
   });
 }
@@ -769,6 +843,63 @@ function updateFoodIngredient(
   </>
 )}
 
+
+{pending.kind === "workout" && (
+  <>
+    <p className="break-words text-sm font-semibold text-white">
+      {pending.entry.name}
+    </p>
+
+    <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
+      <span>{pending.entry.minutes} minutes</span>
+      <span>{pending.entry.exercises.length} exercises</span>
+    </div>
+
+    <div className="mt-4 space-y-2">
+      {pending.entry.exercises.map((exercise, index) => (
+        <div
+          key={`${exercise.exerciseName}-${index}`}
+          className="rounded-xl border border-white/[0.07] bg-[#151916] p-3"
+        >
+          <p className="text-sm font-semibold text-lime-300">
+            {index + 1}. {exercise.exerciseName}
+          </p>
+
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <p className="text-zinc-500">Sets</p>
+              <p className="font-semibold text-white">
+                {exercise.sets}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-zinc-500">Reps</p>
+              <p className="font-semibold text-white">
+                {exercise.reps}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-zinc-500">Weight</p>
+              <p className="font-semibold text-white">
+                {exercise.weightKg} kg
+              </p>
+            </div>
+          </div>
+
+          {exercise.notes && (
+            <p className="mt-2 text-xs text-zinc-500">
+              {exercise.notes}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  </>
+)}
+
+
               {pending.kind === "weight" && (
                 <>
                   <p className="text-xs text-zinc-500">Body weight</p>
@@ -822,8 +953,10 @@ function updateFoodIngredient(
       : pending.kind === "weight"
         ? "Save weight"
         : pending.kind === "activity"
-          ? "Save activity"
-          : "Accept demo entry"}
+  ? "Save activity"
+  : pending.kind === "workout"
+    ? "Save workout"
+    : "Accept demo entry"}
               </button>
 
               <button
