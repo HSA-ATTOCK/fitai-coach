@@ -34,9 +34,6 @@ export function PrimaryButton({
     />
   );
 }
-export function DemoBanner() {
-  return <div className="mb-5 flex items-start gap-3 rounded-xl border border-lime-300/15 bg-lime-300/[0.04] px-4 py-3 text-sm text-zinc-400"><span className="mt-0.5 text-lime-300">●</span><p><strong className="mr-1 text-lime-300">Phase 2 demo:</strong> values and interactions are illustrative and stored only in temporary frontend state.</p></div>;
-}
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
   return <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-5 py-10 text-center"><span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-xl text-lime-300">✳</span><h3 className="font-semibold">{title}</h3><p className="mt-1 max-w-sm text-sm text-zinc-500">{description}</p>{action && <div className="mt-4">{action}</div>}</div>;
 }

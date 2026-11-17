@@ -319,7 +319,20 @@ export default function ProfileGoalsPage() {
     return () => {
       isActive = false;
     };
-  }, [supabase]);
+  }, [
+  supabase,
+  defaultProfile.age,
+  defaultProfile.heightCm,
+  defaultProfile.weightKg,
+  defaultProfile.dietaryPreference,
+  defaultProfile.activityLevel,
+  defaultGoals.targetWeightKg,
+  defaultGoals.dailyCalories,
+  defaultGoals.dailyProtein,
+  defaultGoals.dailyCarbs,
+  defaultGoals.dailyFat,
+  defaultGoals.dailyWaterMl,
+]);
 
   const changeUnit = (nextUnit: UnitSystem) => {
     if (nextUnit === unit) return;

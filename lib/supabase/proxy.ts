@@ -41,6 +41,7 @@ const claims = error ? null : data?.claims ?? null;
     "/progress",
     "/food-history",
     "/profile",
+    "/exercise",
   ];
 
   const isProtectedRoute = protectedRoutes.some(

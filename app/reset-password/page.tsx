@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+
 import Link from "next/link";
 import {
   LockKeyhole,
@@ -15,7 +15,6 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

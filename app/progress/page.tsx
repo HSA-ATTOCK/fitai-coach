@@ -138,7 +138,7 @@ const [weightEntries, setWeightEntries] = useState<ProgressWeight[]>([]);
 const [foodEntries, setFoodEntries] = useState<ProgressFood[]>([]);
 const [activityEntries, setActivityEntries] = useState<ProgressActivity[]>([]);
 
-const [isLoading, setIsLoading] = useState(true);
+const [, setIsLoading] = useState(true);
 const [loadError, setLoadError] = useState("");
 
 useEffect(() => {

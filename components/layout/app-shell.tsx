@@ -195,10 +195,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
         </Link>
 
-        <div className="mb-7 rounded-full border border-lime-300/20 bg-lime-300/5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-lime-300">
-          ● Demo mode · Phase 2
-        </div>
-
         <NavLinks />
 
         {/* Account Section */}
@@ -255,10 +251,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <strong>FitAI Coach</strong>
           </Link>
 
-          <div className="hidden items-center gap-2 rounded-full bg-zinc-900 px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-400 sm:flex">
-            <span className="h-2 w-2 rounded-full bg-lime-300" />
-            Sample data only — no live services connected
-          </div>
 
           {/* <div className="ml-auto flex items-center">
             <div

@@ -91,13 +91,3 @@ export interface FitnessGoals {
   dailyFat: number;
   dailyWaterMl: number;
 }
-
-export interface DemoState {
-  messages: ChatMessage[];
-  foodEntries: FoodEntry[];
-  weightEntries: WeightEntry[];
-  activityEntries: ActivityEntry[];
-  waterEntries: WaterEntry[];
-  profile: UserProfile;
-  goals: FitnessGoals;
-}

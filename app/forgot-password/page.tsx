@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
 
             <p className="mt-3 text-sm leading-6 text-gray-400">
               Enter the email address associated with your account.
-              We'll send you a password recovery link.
+              We&apos;ll send you a password recovery link.
             </p>
           </div>
 
@@ -140,7 +140,7 @@ export default function ForgotPasswordPage() {
                 <p className="mt-3 text-sm leading-6 text-gray-400">
                   If an account exists for{" "}
                   <span className="font-medium text-white">{email}</span>,
-                  you'll receive a password recovery link.
+                  you&apos;ll receive a password recovery link.
                 </p>
 
                 <div className="mt-6 rounded-xl border border-[#B7FF3C]/20 bg-[#B7FF3C]/5 p-4 text-left">
@@ -148,7 +148,7 @@ export default function ForgotPasswordPage() {
                     NEXT STEP
                   </p>
                   <p className="mt-2 text-sm leading-6 text-gray-400">
-                    Open the recovery email and click its link. You'll be
+                    Open the recovery email and click its link. You&apos;ll be
                     redirected to FitAI Coach to create a new password.
                     Check your spam folder if necessary.
                   </p>

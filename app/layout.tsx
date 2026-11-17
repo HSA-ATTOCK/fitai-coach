@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 // import "./globals.css";
 import "./fitai-stitch-theme.css";
 import { AppShell } from "@/components/layout/app-shell";
-import { DemoProvider } from "@/lib/demo/demo-store";
+import { ChatProvider } from "@/lib/chat/chat-store";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
     "Track your meals, nutrition, workouts, water intake, and fitness progress with FitAI Coach.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en" data-scroll-behavior="smooth"
@@ -29,9 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       {/* <body className="min-h-full flex flex-col">{children}</body> */}
       <body>
-  <DemoProvider>
-    <AppShell>{children}</AppShell>
-  </DemoProvider>
+  <ChatProvider>
+  <AppShell>{children}</AppShell>
+</ChatProvider>
 </body>
     </html>
   );

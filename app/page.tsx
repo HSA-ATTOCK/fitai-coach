@@ -1,7 +1,6 @@
 
 import Link from "next/link";
 import {
-  Activity,
   ArrowRight,
   BarChart3,
   Utensils,
@@ -22,7 +21,7 @@ const features = [
     icon: BarChart3,
     title: "Progress analytics",
     description:
-      "Explore sample weight trends, workout activity, and nutrition consistency.",
+      "Track your weight trends, workout activity, and nutrition consistency.",
     href: "/progress",
     label: "View progress",
   },
@@ -87,8 +86,8 @@ export default function Home() {
             Everything you need to stay on track
           </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Choose an area to explore your Phase 2 demo.
-          </p>
+  Access your nutrition, progress, and personal fitness goals.
+</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -121,25 +120,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#111412] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-        <div className="flex items-start gap-3">
-          <Activity className="mt-1 shrink-0 text-lime-300" size={22} />
-          <div>
-            <h2 className="font-semibold">Phase 2 demo mode</h2>
-            <p className="mt-1 text-sm leading-6 text-zinc-400">
-              This version uses illustrative sample data. Live AI services
-              and database integration have not been connected yet.
-            </p>
-          </div>
-        </div>
-
-        <Link
-          href="/dashboard"
-          className="shrink-0 text-sm font-semibold text-lime-300 hover:text-lime-200"
-        >
-          Get started →
-        </Link>
-      </section>
     </div>
   );
 }

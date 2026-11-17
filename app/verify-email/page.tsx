@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -12,21 +13,15 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-export default function VerifyEmailPage() {
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+function VerifyEmailContent() {
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email") || "";
+  const name = searchParams.get("name") || "";
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const supabase = createClient();
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-
-    setEmail(params.get("email") || "");
-    setName(params.get("name") || "");
-  }, []);
 
   async function handleResendEmail() {
     if (!email) {
@@ -73,7 +68,7 @@ export default function VerifyEmailPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-[#a4ada5]">
-            Your account has been created. We've requested an email
+            Your account has been created. We&apos;ve requested an email
             confirmation link. Open the link in your email to verify your
             address and access your FitAI Coach dashboard.
           </p>
@@ -130,7 +125,7 @@ export default function VerifyEmailPage() {
           <div className="mt-6 flex items-start gap-3 rounded-xl bg-[#121413] p-4">
             <ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#b0f734]" />
             <p className="text-xs leading-5 text-[#737d73]">
-              If you don't see the email, check your spam folder. The
+              If you don&apos;t see the email, check your spam folder. The
               confirmation link will take you back to FitAI Coach.
             </p>
           </div>
@@ -149,5 +144,17 @@ export default function VerifyEmailPage() {
         </p>
       </div>
     </AuthShell>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0b0e0c]" />
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

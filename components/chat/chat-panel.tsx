@@ -12,7 +12,6 @@ import {
 import {
   Bot,
   Send,
-  Sparkles,
   UserRound,
   Check,
   X,
@@ -23,8 +22,8 @@ import {
   Footprints,
   MessageCircle,
 } from "lucide-react";
-import { useDemo } from "@/lib/demo/demo-store";
-import type { ProposedAction } from "@/lib/demo/demo-chat";
+import { useChat } from "@/lib/chat/chat-store";
+import type { ProposedAction } from "@/lib/chat/chat-types";
 import { Card } from "@/components/ui/primitives";
 
 
@@ -152,11 +151,7 @@ function resolveActivityFollowUp(
 }
 
 export function ChatPanel() {
-  const {
-    messages,
-    addMessage,
-    addFood,
-  } = useDemo();
+const { messages, addMessage } = useChat();
 
   const [supabase] = useState(() => createClient());
 const [isAccepting, setIsAccepting] = useState(false);
@@ -488,6 +483,7 @@ else if (pending.kind === "workout") {
     .from("activities")
     .insert({
       user_id: user.id,
+      entry_source: "ai_chat",
       activity_type: pending.entry.name.toLowerCase(),
       duration_minutes: pending.entry.minutes,
       calories_burned: pending.entry.caloriesBurned ?? 0,
@@ -593,10 +589,6 @@ else if (pending.kind === "workout") {
           </div>
         </div>
 
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-lime-300/15 bg-lime-300/[0.06] px-2.5 py-1.5 text-[10px] font-medium text-lime-300 sm:px-3 sm:text-xs">
-          <Sparkles size={12} />
-          Demo mode
-        </span>
       </div>
 
       {/* Quick prompts */}
@@ -639,7 +631,7 @@ else if (pending.kind === "workout") {
             </div>
 
             <h3 className="mt-5 text-lg font-semibold text-white">
-              Let's work on your goals
+              Let&apos;s work on your goals
             </h3>
 
             <p className="mt-2 max-w-xs text-sm leading-6 text-zinc-500">
@@ -956,7 +948,7 @@ else if (pending.kind === "workout") {
   ? "Save activity"
   : pending.kind === "workout"
     ? "Save workout"
-    : "Accept demo entry"}
+    : "Save entry"}
               </button>
 
               <button

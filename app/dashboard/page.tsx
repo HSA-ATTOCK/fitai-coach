@@ -17,7 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { DailySummary } from "@/components/dashboard/daily-summary";
-import { DemoBanner, Card } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/primitives";
 
 type DashboardProfile = {
   full_name: string | null;
@@ -150,7 +150,6 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6 pb-6">
-      <DemoBanner />
 
       <section className="relative overflow-hidden rounded-3xl border border-lime-300/15 bg-gradient-to-br from-[#172018] via-[#111512] to-[#0c0f0d] p-5 sm:p-7 lg:p-8">
         <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-lime-300/[0.07] blur-3xl" />
@@ -324,9 +323,9 @@ export default function DashboardPage() {
                 className="mt-0.5 shrink-0 text-lime-300"
               />
               <p>
-                Your accepted records are saved to your account.
-                AI assistant responses are still using the demo mode.
-              </p>
+  Your accepted records are saved securely to your account.
+  Keep logging your meals, workouts, and daily progress.
+</p>
             </div>
           </Card>
         </aside>

@@ -55,13 +55,12 @@ export default function FoodHistoryPage() {
     type DateRange = 1 | 7 | 30 | 90;
 
 const [dateRange, setDateRange] = useState<DateRange>(30);
-const [today, setToday] = useState<Date | null>(null);
 
-useEffect(() => {
+const [today] = useState(() => {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
-  setToday(date);
-}, []);
+  return date;
+});
 
   const [confirmId, setConfirmId] = useState<string | null>(null);
 const [editingEntry, setEditingEntry] = useState<FoodEntry | null>(null);
@@ -561,9 +560,9 @@ const filtered = useMemo(
               </div>
             ) : (
               <p className="text-sm text-zinc-500">
-                Ingredient details aren't available for this meal. Meals
-                saved before ingredient tracking was enabled won't have
-                individual ingredient information.
+                Ingredient details aren&apos;t available for this meal. Meals
+saved before ingredient tracking was enabled won&apos;t have
+individual ingredient information.
               </p>
             )}
           </div>
